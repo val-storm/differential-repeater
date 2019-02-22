@@ -1,0 +1,26 @@
+Even this README is "Under Construction/Destruction" just figuring it out over here. 
+
+The Differential Repeater (named after Gilles Deleuze's great work of philosophy Difference and Repetition)
+is a large scale sequencer realm where sequences and patterns may be continually modified
+by constructive (no overwrite) and destructive (overwrtite) algorithms. 
+In order to get the most amount of steps and tracks, MIDI note data is compressed down to a byte, 
+stored and then built, scaled, and sent as MIDI per step. Teensy 3.2 and 3.6 are handling all the work. 
+Certain concessions (some very easy ones) were made with this apporach.
+For one, the storing of velocity was thrown out entirely. In fact any MIDI message that
+could be seen as 'expressive' is handled by built in LFO's or CV and passed in real-time and
+not stored. It is highly unlikley that one would use this 'instrument' for surgical precision
+in composition. Rather, one might hit a few notes, run some clock signals in to trigger the algorithm
+and come back in a half hour or so to see what part of a contrapunctal galaxy they now have charted.
+
+MPE is relatively recent news to me, but it would be great to be compatible with an MPE
+tolerant DAW like Bitwig.
+
+Research is also being done on Scala tuning approaches. Having 14 bit pitchbend per note would
+be very handy for some really bizarre scales.
+
+The interface is centered around touch capacitance until it proves too error prone.
+
+CV and gate out is in the cards, but, I'll have to learn that first. Afterall, this is my first project.
+
+
+
