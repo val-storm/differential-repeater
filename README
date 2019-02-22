@@ -11,6 +11,12 @@ could be seen as 'expressive' is handled by built in LFO's or CV and passed in r
 not stored. It is highly unlikley that one would use this 'instrument' for surgical precision
 in composition. Rather, one might hit a few notes, run some clock signals in to trigger the algorithm
 and come back in a half hour or so to see what part of a contrapunctal galaxy they now have charted.
+In order to get the project up and running I pilfered some handy implementation from Adafruit's
+FifteenStep for things like the MIDI callback, shuffle and quantize, as well as general layout. Over the
+course of development these things might end up implememnted differently but, it was a big help to get
+started and helped to bring to light some things I had not thought about. So thanks to that project and
+I will find out how to correctly credit that at some point. In the meantime, I'm just new at this and
+not meaning to fail any protocol. 
 
 MPE is relatively recent news to me, but it would be great to be compatible with an MPE
 tolerant DAW like Bitwig.
