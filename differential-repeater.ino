@@ -18,22 +18,33 @@ BSD license, all text above must be included in any redistribution
 #include <Wire.h>
 #include "Adafruit_MPR121.h"
 #include "differential-repeater.h"
+#include "ui.h"
 
 #ifndef _BV
 #define _BV(bit) (1 << (bit)) 
 #endif
 
 // You can have up to 4 on one i2c bus but one is enough for testing!
-Adafruit_MPR121 cap = Adafruit_MPR121();
+Adafruit_MPR121 keys = Adafruit_MPR121();
+Adafruit_MPR121 controls = Adafruit_MPR121();
 
 // Keeps track of the last pins touched
 // so we know when buttons are 'released'
-uint16_t lasttouched = 0;
-uint16_t currtouched = 0;
+uint16_t lasttouchedKeys = 0;
+uint16_t currtouchedKeys = 0;
+//uint16_t lasttouchedInterface = 0;
+uint16_t controlRegister = 0;
+uint16_t keysRegister = 0;
+uint16_t controlState = 0;
+uint16_t keysState = 0;
 
 unsigned long _now;
+uint8_t counter = 0;
+bool tripped = false;
 
 Engine starfield = Engine();
+
+ui touchUI;
 
 void setup() {
   
@@ -49,71 +60,123 @@ void setup() {
   
   // Default address is 0x5A, if tied to 3.3V its 0x5B
   // If tied to SDA its 0x5C and if SCL then 0x5D
-  if (!cap.begin(0x5A)) {
+  if (!keys.begin(0x5A)) {
     Serial.println("MPR121 not found, check wiring?");
     while (1);
   }
   Serial.println("MPR121 found!");
+  if (!controls.begin(0x5C)) {
+    Serial.println("MPR121 not found, check wiring?");
+    while (1);
+  }
+  Serial.println("MPR121 found!");
+  starfield._begin();
   starfield.setMidiHandler(midiOut);
+  touchUI._begin(& starfield);
   
-  starfield.toggleRecord();
-  //starfield.toggleRecord(1);
-  starfield.scaleUp();
-  starfield.octaveUp();
-  starfield.setLoopPoint(0, 64);
-  starfield.setLoopPoint(1, 31);
-  starfield._play();
   _now = millis();
+
+   for(uint8_t x = 0; x < 13; x++)
+   {
+    for(uint8_t y = 0; y < 12; y++)
+    {
+      Serial.print(starfield.printScales(x,y));
+    }
+    Serial.println(" ");
+   } 
 }
 
 void loop() {
  
   starfield.transport(); 
+  
   // Get the currently touched pads
-  currtouched = cap.touched();
+  //keysRegister = keys.touched();
+  currtouchedKeys = keys.touched();
+  controlRegister = controls.touched();
 
+  if(controlRegister != controlState)
+  {
+    touchUI.readTouch(controlRegister);
+    controlState = controlRegister;
+  }
+
+
+  
+//  if(keysRegister != keysState)
+//  {
+//    starfield.writeNote(keysRegister);
+//    keysState = keysRegister;
+//  }
+
+ 
+
+//  for (uint8_t i = 0; i < 12; i++)
+//  {
+//    Serial.print((keysRegister &  (1 << i)) >> i);
+//  }
+//  Serial.println();
+//  for (uint8_t i = 0; i < 12; i++)
+//  {
+//    Serial.print(keysState & (1 << i));
+//  }
+//
   for (uint8_t i=0; i<12; i++) {
     // it if *is* touched and *wasnt* touched before, alert!
-    if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
-      Serial.print(i); Serial.println(" touched");
+    if ((currtouchedKeys & _BV(i)) && !(lasttouchedKeys & _BV(i)) ) {
+     // Serial.print(i); Serial.println(" touched");
       starfield.writeNoteOn(i);
     }
     // if it *was* touched and now *isnt*, alert!
-    if (!(currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
-      Serial.print(i); Serial.println(" released");
+    if (!(currtouchedKeys & _BV(i)) && (lasttouchedKeys & _BV(i)) ) {
+     // Serial.print(i); Serial.println(" released");
       starfield.writeNoteOff(i);
     }
   }
-
+  
   // reset our state
-  lasttouched = currtouched;
-  /*
-  if(millis() > _now + starfield.getSixteenth())
+  lasttouchedKeys = currtouchedKeys;
+
+  for(uint8_t i = 0; i < 16; i++)
   {
-   uint8_t _step = starfield.getPosition(0);
-   Serial.println(_step);
-    _now = millis();
-   //Serial.println(starfield.getSixteenth());
-   //Serial.println(starfield.getTicks());
+    Serial.print(starfield.getPosition(i));
   }
-  */
-  delay(10);
+  
+  Serial.println();
+  for(uint8_t i = 0; i < 16; i++)
+  {
+    Serial.print(starfield.getWrite(i));
+  }
+  
+  Serial.println();
+  Serial.println(touchUI.getStuff(), BIN);
+  //delay(10);
   // comment out this line for detailed data from the sensor!
-  return;
+  //return;
   
   // debugging info, what
-  Serial.print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x"); Serial.println(cap.touched(), HEX);
+  Serial.print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0b"); Serial.println(controls.touched(), BIN);
+  
   Serial.print("Filt: ");
   for (uint8_t i=0; i<12; i++) {
-    Serial.print(cap.filteredData(i)); Serial.print("\t");
+    Serial.print(keys.filteredData(i)); Serial.print("\t");
   }
   Serial.println();
   Serial.print("Base: ");
   for (uint8_t i=0; i<12; i++) {
-    Serial.print(cap.baselineData(i)); Serial.print("\t");
+    Serial.print(keys.baselineData(i)); Serial.print("\t");
   }
+  
   Serial.println();
   
+  Serial.print("UI reg: ");
+  Serial.print(touchUI.getStuff(), BIN);
+
+  Serial.println();
+  
+  Serial.print("int reg: ");
+  Serial.print(controlRegister, BIN);
+  Serial.println();
   // put a delay so it isn't overwhelming
   delay(100);
 }
@@ -124,13 +187,13 @@ void midiOut(uint8_t note, uint8_t type, uint8_t channel)
   if(type == 1)
   {
     usbMIDI.sendNoteOn(note, 99, channel);
-    Serial.println("Note On sent");
+   //Serial.println(note);
   }
   
   if(type == 0)
   {
     usbMIDI.sendNoteOff(note, 0, channel);
-    Serial.println("Note Off sent");
+   // Serial.println("Note Off sent");
   }
   
   

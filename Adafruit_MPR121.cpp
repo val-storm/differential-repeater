@@ -80,14 +80,14 @@ boolean Adafruit_MPR121::begin(uint8_t i2caddr) {
   writeRegister(MPR121_FDLT, 0x00);
 
   writeRegister(MPR121_DEBOUNCE, 0);
-  writeRegister(MPR121_CONFIG1, 0x10); // default, 16uA charge current
-  writeRegister(MPR121_CONFIG2, 0x20); // 0.5uS encoding, 1ms period
+ // writeRegister(MPR121_CONFIG1, 0xA0); // default, 16uA charge current 0x30
+ // writeRegister(MPR121_CONFIG2, 0x20); // 0.5uS encoding, 1ms period
 
-//  writeRegister(MPR121_AUTOCONFIG0, 0x8F);
+  writeRegister(MPR121_AUTOCONFIG0, 0x8B);
 
-//  writeRegister(MPR121_UPLIMIT, 150);
-//  writeRegister(MPR121_TARGETLIMIT, 100); // should be ~400 (100 shifted)
-//  writeRegister(MPR121_LOWLIMIT, 50);
+  writeRegister(MPR121_UPLIMIT, 0xCA);
+  writeRegister(MPR121_TARGETLIMIT, 0xB6); // should be ~400 (100 shifted)
+  writeRegister(MPR121_LOWLIMIT, 0x83);
   // enable all electrodes
   writeRegister(MPR121_ECR, 0x8F);  // start with first 5 bits of baseline tracking
 
