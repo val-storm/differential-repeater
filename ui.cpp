@@ -19,43 +19,33 @@ void ui::readTouch(uint16_t touch) {
   uint8_t track = 0;
   unsigned long _now;
 
-  
-  //reset long touch counter if register is empty
-  if(!touch) {
-    longTouch = 0;
-  }
-
-  //start counting if any controls are pressed
-  if(touch) {
-    _now = millis(); //start counter
-    longTouch = _now + LONG_TIME;
-  }
 
   //scan first five bits for pressence of a track code
 
   lowCode = touch & 0x1F;
+  highCode = touch & 0xFE0;
   track = getTrack(lowCode);
     
 
   //default mode controls
 
   //set track record (hold selected track and tap record)
-  if(track && touch & RECORD_CODE)
+  if(lowCode && touch & RECORD_CODE)
   {
-    sequencer->selectTrackRecord(track - 1);
+    sequencer->selectTrackRecord(track);
     return;
   }
 
   //set track scale mode (hold track and tap scale)
-  if(track && touch & SCALE_CODE)
+  if(lowCode && touch & SCALE_CODE)
   {
     
-    sequencer->setTrackScale(track - 1);
+    sequencer->setTrackScale(track);
     return;  
     
   }
   
-  if(track && touch & ALGORITHM_CODE)
+  if(lowCode && touch & ALGORITHM_CODE)
   { 
     switch (track)
     {
@@ -64,15 +54,15 @@ void ui::readTouch(uint16_t touch) {
      case 18:
       sequencer->construction(5); 
      default: 
-      sequencer->toggleWriteEnabled(track - 1);
+      sequencer->toggleWriteEnabled(track);
     }
     return;  
     
   }
 
-  if(track && touch & UTIL_CODE)
+  if(lowCode && touch & UTIL_CODE)
   { 
-    sequencer->setDirection(track - 1, 0x2);
+    sequencer->changeDirection(track);
     return;  
   }
   
@@ -147,7 +137,7 @@ uint8_t ui::getTrack(uint8_t track)
   for(uint8_t i = 0; i < 18; i++)
   {
     if(trackCode[i] == track)
-      return i + 1;
+      return i;
   }
   return 0;
 }

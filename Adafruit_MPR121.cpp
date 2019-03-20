@@ -26,6 +26,19 @@
  *
  */
 
+
+ /*********************************************************************
+ *        EDITED FOR USE WITH DIFFERENTIAL REPEATER BY STATION
+ *   ---------------------------------------------------------------
+ *   
+ *   1. Changed sample rate in the AFE Register
+ *   2. Enabled Auto-config to recommended settings in Application
+ *      Note 3889 (AN3889)
+ *   3. Enabled "13th Electrode" for proximity sensing for velocity
+ *      control (pending)
+ *      
+ **********************************************************************/
+
 #include "Adafruit_MPR121.h"
 
 /**

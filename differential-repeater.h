@@ -7,9 +7,9 @@
 #define DEFAULT_LOOP_POINT 15
 #define MIN_TEMPO 10
 #define MAX_TEMPO 250
-#define STEPS 200
-#define TRACKS 17
-#define POLYPHONY 12
+#define STEPS 256
+#define TRACKS 16
+#define POLYPHONY 16
 #define COPY_BUFFER 16
 #define OFFSET 36
 #define DEFAULT_HARMONY 4
@@ -18,22 +18,26 @@ typedef void (*MIDIcallback) (uint8_t note, uint8_t type, uint8_t channel);
 
 //typedef void (*STEPcallback) (uint8_t step);
 
-   const uint8_t table[13][12] =
-    {      {0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19},   //Major Scale
-           {0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19},   //Minor Scale
-           {0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19},   //Dorian
-           {0, 1, 3, 5, 7, 8, 10, 12, 13, 15, 17, 19},   //Phyrigian
-           {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19},   //Lydian
-           {0, 2, 4, 5, 7, 9, 10, 12, 14, 16, 17, 19},   //Mixolydian
-           {0, 1, 3, 5, 6, 8, 10, 12, 13, 15, 17, 18},   //Locrian
-           {0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26},  //Major Pentatonic
-           {0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27}, //Minor Pentatonic
-           {0, 3, 5, 6, 7, 10, 12, 15, 17, 18, 19, 22},  //Blues
-           {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24},  //Whole Tone
-           {0, 1, 3, 4, 6, 7, 9, 10, 12, 13, 15, 16},    //Octatonic
-           {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}        //Chromatic
-    };
-    
+//current scale list not the most fun or comprehensive, would like to implement scala tunings
+//which to my understanding would have specific 14 bit pitchbend values associated with midi
+//notes. Probably a summer project.
+
+const uint8_t table[13][12] =
+{      {0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19},   //Major Scale
+       {0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19},   //Minor Scale
+       {0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19},   //Dorian
+       {0, 1, 3, 5, 7, 8, 10, 12, 13, 15, 17, 19},   //Phyrigian
+       {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19},   //Lydian
+       {0, 2, 4, 5, 7, 9, 10, 12, 14, 16, 17, 19},   //Mixolydian
+       {0, 1, 3, 5, 6, 8, 10, 12, 13, 15, 17, 18},   //Locrian
+       {0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26},  //Major Pentatonic
+       {0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27}, //Minor Pentatonic
+       {0, 3, 5, 6, 7, 10, 12, 15, 17, 18, 19, 22},  //Blues
+       {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24},  //Whole Tone
+       {0, 1, 3, 4, 6, 7, 9, 10, 12, 13, 15, 16},    //Octatonic
+       {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}        //Chromatic
+};
+  
 
 //using namespace std;
 
@@ -49,13 +53,15 @@ class Engine
     void transport();
     void toggleRecord();
     void setDivision();
-    void setDirection(uint8_t track, uint8_t direc);
+    void changeDirection(uint8_t track);
     uint8_t getPosition(uint8_t track);
     uint8_t getWrite(uint8_t track);
     uint8_t getRunning();
+    bool getRecording();
     void setLoopPoint(uint8_t track, uint8_t point);
     void setStartPoint(uint8_t track, uint8_t point);
     void setTempo(int bpm);
+    void readKeys(uint16_t keys);
     void writeNoteOn(uint8_t degree);
     void writeNoteOff(uint8_t degree);
     void writeNote (uint16_t keyReg);
@@ -81,8 +87,9 @@ class Engine
     uint8_t startPoint[16];
     bool writeEnabled[16];
     uint8_t seqDirection[16];
-    bool isBackward[16];
-    bool isRandom[16];
+    
+    //bool isBackward[16];
+    //bool isRandom[16];
     uint8_t trackScale[16];
     //void playStep();
     //void goForward();
@@ -91,39 +98,51 @@ class Engine
 
   private:
     struct Space
-    {
+    { 
+      uint8_t duration:8;
       uint8_t degree:4;
       uint8_t octave:3;
       uint8_t isOn:1;
+      Space(): degree(15)
+      {
+      }
+      
+      
     };
     struct Note
     {
+       uint8_t duration;
        uint8_t note:7; //only need 7 bits for a midi note
        uint8_t type:1; //on or off works for me
-       uint8_t channel;   //see README
+       Note(): type(0) {}
+        //see README
+       
     };
-
-    
-    struct errorLocation
+    struct Timer
     {
-      uint8_t x;
-      uint8_t y;
-      uint8_t z;
+      unsigned long startTime;
+      uint8_t  startStep;
     };
     
-    Space _NoteOn[STEPS][TRACKS][POLYPHONY];
-    Note NoteOutbox[192];
-   // errorLocation last;
- 
+    Space _NoteOn[STEPS][17][POLYPHONY];
+   
+    Note NoteOutbox[TRACKS][POLYPHONY];
+    
+    Timer polycounter[POLYPHONY];
+
+    bool keysOn[16][128] = { { 0 , 0 } };
+    
     MIDIcallback midicb;
    
     uint8_t lowFilter;
     uint8_t highFilter;
     int tempo;
-    uint8_t key;
+    uint8_t key[TRACKS];
     uint8_t octave;
     uint8_t scale;
-    uint8_t loaded;
+    uint8_t loaded[TRACKS];
+    uint8_t polyIndex[TRACKS] = { 0 };
+    unsigned long division[TRACKS];
     uint8_t trackRecord;
     uint16_t previousKeys;
     unsigned long _clock;
@@ -131,19 +150,21 @@ class Engine
     //unsigned long sixth;
     //unsigned long shuffle;
     //unsigned long shuffleDivision();
-    unsigned long nextBeat;
+    unsigned long nextBeat[TRACKS];
     unsigned long nextTick;
     bool isRunning;
     bool isRecording;
     uint8_t noteCounter;
+    uint8_t lastWrite;
     void tick();
-    void _step();
-    uint8_t quantize();
+    void _step(uint8_t track);
+    uint8_t quantize(uint8_t track);
     void flip(uint8_t track);
     uint8_t getNextPosition(uint8_t track);
-    void loadOutBox();
-    void buildNote(uint8_t degree, uint8_t octave, uint8_t on, uint8_t counter, uint8_t channel);
+    void loadOutBox(uint8_t track);
+    void durationTracker(uint8_t track);
+    void buildNote(uint8_t degree, uint8_t octave, uint8_t duration, uint8_t counter, uint8_t track);
     //uint8_t buildNote(uint8_t degree, uint8_t octave);
-    void triggerNotes();
+    void triggerNotes(uint8_t track);
 };
 #endif     

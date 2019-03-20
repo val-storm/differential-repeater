@@ -1,3 +1,4 @@
+
 /*!
  * @file Adafruit_MPR121.h
  *
@@ -16,6 +17,11 @@
   BSD license, all text above must be included in any redistribution
  *
  */
+
+ /*************************************************
+ * EDITED FOR USE WITH DIFFERENTIAL REAPEATER BETA
+ * see changes in implementation file.
+ *************************************************/
 
 #ifndef ADAFRUIT_MPR121_H
 #define ADAFRUIT_MPR121_H
