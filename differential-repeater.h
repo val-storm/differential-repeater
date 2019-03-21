@@ -3,7 +3,7 @@
 
 #include "Arduino.h" //double check if this is needed
 
-#define DEFAULT_TEMPO 80
+#define DEFAULT_TEMPO 120
 #define DEFAULT_LOOP_POINT 15
 #define MIN_TEMPO 10
 #define MAX_TEMPO 250
@@ -58,17 +58,22 @@ class Engine
     uint8_t getWrite(uint8_t track);
     uint8_t getRunning();
     bool getRecording();
-    void setLoopPoint(uint8_t track, uint8_t point);
+    void initializeTrack();
+    void setLoopPoint(uint8_t point);
     void setStartPoint(uint8_t track, uint8_t point);
+    void pageUp(uint8_t track);
+    void pageDown(uint8_t track);
     void setTempo(int bpm);
-    void readKeys(uint16_t keys);
     void writeNoteOn(uint8_t degree);
     void writeNoteOff(uint8_t degree);
-    void writeNote (uint16_t keyReg);
+    void undoLastNote();
     void octaveUp();
     void octaveDown();
     void keyUp();
     void keyDown();
+    void muteTrack();
+    void muteTrack(uint8_t track);
+    void muteAll();
     void toggleWriteEnabled(uint8_t track);
     void setTrackScale(uint8_t scale);
     void setMidiHandler(MIDIcallback cb);
@@ -130,7 +135,10 @@ class Engine
     
     Timer polycounter[POLYPHONY];
 
+    Space * last = NULL;
+
     bool keysOn[16][128] = { { 0 , 0 } };
+    bool trackMute[TRACKS] = { 0 };
     
     MIDIcallback midicb;
    
@@ -140,13 +148,16 @@ class Engine
     uint8_t key[TRACKS];
     uint8_t octave;
     uint8_t scale;
-    uint8_t loaded[TRACKS];
     uint8_t polyIndex[TRACKS] = { 0 };
-    unsigned long division[TRACKS];
+    //unsigned long division[TRACKS];
     uint8_t trackRecord;
     uint16_t previousKeys;
     unsigned long _clock;
     unsigned long sixteenth;
+    unsigned long beatDiv_8;
+    unsigned long beatDiv_8_triplets;
+    unsigned long beatDiv_32;
+    unsigned long * division[16];
     //unsigned long sixth;
     //unsigned long shuffle;
     //unsigned long shuffleDivision();
@@ -159,12 +170,8 @@ class Engine
     void tick();
     void _step(uint8_t track);
     uint8_t quantize(uint8_t track);
-    void flip(uint8_t track);
     uint8_t getNextPosition(uint8_t track);
-    void loadOutBox(uint8_t track);
     void durationTracker(uint8_t track);
-    void buildNote(uint8_t degree, uint8_t octave, uint8_t duration, uint8_t counter, uint8_t track);
-    //uint8_t buildNote(uint8_t degree, uint8_t octave);
     void triggerNotes(uint8_t track);
 };
 #endif     

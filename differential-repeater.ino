@@ -35,6 +35,12 @@ int dataPin = 32;
  
 uint8_t leds = 0;
 
+Encoder knobRight(27, 26);
+Encoder knobLeft(24, 6);
+int8_t positionLeft  = -127;
+int8_t positionRight = -127;
+
+
 void setup() {
   
   Serial.begin(9600);
@@ -74,6 +80,14 @@ void setup() {
   pinMode(latchPin, OUTPUT);
   pinMode(dataPin, OUTPUT);  
   pinMode(clockPin, OUTPUT);
+
+//  starfield.setLoopPoint(2, 31);
+//  starfield.setLoopPoint(0, 63);
+//  starfield.setLoopPoint(3, 77);
+//  starfield.setLoopPoint(9, 14);
+//  starfield.setLoopPoint(1, 16);
+
+
 }
 
 void loop() {
@@ -114,10 +128,20 @@ void loop() {
 //    Serial.print(starfield.getPosition(i));
 //  }
 //  Serial.println();
-  
+  int8_t newLeft, newRight;
+  newLeft = knobLeft.read();
+  newRight = knobRight.read();
+  if (newLeft != positionLeft || newRight != positionRight) {
+    positionLeft = newLeft;
+    positionRight = newRight;
+    starfield.setTempo(DEFAULT_TEMPO + positionRight);
+    starfield.setLoopPoint(DEFAULT_LOOP_POINT + positionLeft);
+   // Serial.println(positionRight);
+   // Serial.println(starfield.getPosition(0));
+  }
 
- // Serial.println(leds);
-  delay(10);
+    //Serial.println(controlRegister);
+    delay(10);
   return;
   /*
   // debugging info, what

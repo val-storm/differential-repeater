@@ -26,16 +26,43 @@ void ui::readTouch(uint16_t touch) {
   highCode = touch & 0xFE0;
   track = getTrack(lowCode);
     
-
+  
   //default mode controls
-
+  
   //set track record (hold selected track and tap record)
   if(lowCode && touch & RECORD_CODE)
   {
-    sequencer->selectTrackRecord(track);
-    return;
+    if(track == 16)
+    {
+      sequencer->initializeTrack();
+    } else if (track == 17)
+    {
+      sequencer->undoLastNote();
+    } else 
+    {
+      sequencer->selectTrackRecord(track);
+      return;
+    }
   }
 
+  if(lowCode && touch & PLAY_CODE)
+  {
+    if(track == 16)
+    {
+      sequencer->muteAll();
+      return;
+    } else if (track == 17)
+    {
+      sequencer->_stop();
+      return;
+    } else 
+    {
+      sequencer->muteTrack(track);
+      return;
+    }
+  }
+  
+  
   //set track scale mode (hold track and tap scale)
   if(lowCode && touch & SCALE_CODE)
   {
@@ -47,17 +74,8 @@ void ui::readTouch(uint16_t touch) {
   
   if(lowCode && touch & ALGORITHM_CODE)
   { 
-    switch (track)
-    {
-     case 17:
-      sequencer->construction(1);
-     case 18:
-      sequencer->construction(5); 
-     default: 
-      sequencer->toggleWriteEnabled(track);
-    }
+    sequencer->construction(track + 1);
     return;  
-    
   }
 
   if(lowCode && touch & UTIL_CODE)
@@ -105,28 +123,20 @@ void ui::readTouch(uint16_t touch) {
   {
     _play.current = false;
   }
-
+  
   //toggle record
-  if(touch & RECORD_CODE && !_record.current)
+  if(!lowCode && touch & RECORD_CODE)
   {
     sequencer->toggleRecord();
-    _record.current = true;
+    //_record.current = true;
     return;
   }
-
-  if(!(touch & RECORD_CODE) && _record.current)
-  {
-    _record.current = false;
-    
-  }
-
-  //toggle record
-  if(touch & STOP_CODE && _play.current)
-  {
-    sequencer->_stop();
-    _play.current = false;
-    return;
-  }
+//
+//  if(!(touch & RECORD_CODE) && _record.current)
+//  {
+//    _record.current = false;
+//    
+//  }
 
   
   

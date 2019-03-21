@@ -59,10 +59,6 @@ void Engine::_begin()
   }
    for (uint8_t i = 0; i < TRACKS; i++)
   {
-    loaded[i] = 0;
-  }
-   for (uint8_t i = 0; i < TRACKS; i++)
-  {
     nextBeat[i] = 0;
   }
    for (uint8_t i = 0; i < TRACKS; i++)
@@ -102,7 +98,7 @@ void Engine::_begin()
   
   for (uint8_t i = 0; i < TRACKS; i++)
   {
-    division[i] = sixteenth;
+    division[i] = &sixteenth;
   }
  
 
@@ -157,7 +153,7 @@ void Engine::transport()
 
     _step(i);
 
-    nextBeat[i] = _now + division[i];
+    nextBeat[i] = _now + *division[i];
   }
 
 }
@@ -177,7 +173,6 @@ void Engine::_play()
 void Engine::pause()
 {
   isRunning = isRunning ? false : true;
-  //allNotesOff();
   return;
 }
     
@@ -207,8 +202,18 @@ void Engine::setTempo(int bpm)
 
   sixteenth = 60000L / tempo / 4;
 
+  beatDiv_8 = 60000L / tempo / 2;
+
+  beatDiv_8_triplets = 60000L / tempo / 3;
+
+  beatDiv_32 = 60000L / tempo / 8;
+
   _clock = 60000L / tempo / 24;
 
+// for (uint8_t i = 0; i < TRACKS; i++)
+//  {
+//    division[i] = sixteenth;
+//  }
   //rip off shuffle implementation from FifteenStep if desirable
   return;
 }
@@ -261,25 +266,8 @@ void Engine::_step(uint8_t track)
   
   
   triggerNotes(track);
-  
-  loaded[track] = false;
-  
+    
 
-}
-
-
-void Engine::flip(uint8_t track)
-{
-  /*
-  for(uint8_t i = 0; i < STEPS; i++)
-  {
-   for(uint8_t j = 0; j < POLYPHONY; j++)
-   {
-    if(_NoteOn[i][track][j].degree != 15)
-      _NoteOn[i][track][j].isOn = !_NoteOn[i][track][j].isOn;
-   }
-  }
-  */
 }
 
 void Engine::writeNoteOn(uint8_t degree)
@@ -314,7 +302,7 @@ void Engine::writeNoteOff(uint8_t degree)
     
   uint8_t writeStep = polycounter[degree].startStep;
   
-  uint8_t duration = (millis() - polycounter[degree].startTime) / division[trackRecord];
+  uint8_t duration = (millis() - polycounter[degree].startTime) / *division[trackRecord];
 
   if(duration < 1)
     duration = 1;
@@ -329,92 +317,18 @@ void Engine::writeNoteOff(uint8_t degree)
       _NoteOn[writeStep][trackRecord][i].degree = degree;
       _NoteOn[writeStep][trackRecord][i].octave = octave;
       //Serial.println("Hi");
+      last = &_NoteOn[writeStep][trackRecord][i];
       break;
     }
     
   }
 }
-// to be deleted
-void Engine::readKeys(uint16_t keys)
-{
-  if(!isRecording && !isRunning)
-    return;
-    
-  uint8_t quant = quantize(trackRecord);
- 
-  if(quant == lastWrite)
-    return;
-    
-  
-  
-  for(uint8_t i = 0; i < POLYPHONY; i++)
-  {
-     if( (keys & (1 << i)) >> i )
-      _NoteOn[quant][trackRecord][i].isOn = ((keys & (1 << i)) >> i); 
-  }
-  lastWrite = quant;
-}
-//tbd
-void Engine::writeNote(uint16_t keyReg)
-{
-  /*
-  //lock in a step to write to
-  uint8_t quantizedPosition = quantize();
-  
-    for (uint8_t i = 0; i < 12; i++)
-    {
-      if(keyReg & (1 << i) && !(previousKeys & (1 << i)) )
-      {
-        uint8_t val = buildNote(table[trackScale[trackRecord]][i], octave);
-        
-        midicb(val, 1, trackRecord);
-        
-        if(isRecording && isRunning && !_NoteOn[quantizedPosition][trackRecord][i].isOn)
-        {
-          _NoteOn[quantizedPosition][trackRecord][i].octave = octave;
-          _NoteOn[quantizedPosition][trackRecord][i].isOn = 1;
-        }
-      }
-      
-      if (!( keyReg & (1 << i) ) && ( previousKeys & (1 << i)) )
-      { 
-        uint8_t valOff = buildNote(table[trackScale[trackRecord]][i], octave);
-        midicb(valOff, 0, trackRecord);
 
-        if(isRecording && isRunning && !_NoteOn[quantizedPosition][trackRecord][i].isOn)
-        {
-          _NoteOn[quantizedPosition][trackRecord][i].octave = _NoteOn[quantizedPosition - 1][trackRecord][i].octave;
-          _NoteOn[quantizedPosition][trackRecord][i].isOn = 0;
-        }
-      }
-    }
-
-  previousKeys = keyReg;
-  */
-}
-//tbd
-void Engine::loadOutBox(uint8_t track)
+void Engine::undoLastNote()
 {
-  //reset the note counter
-  noteCounter = 0;
-  uint8_t next = getNextPosition(track);
-  
-  for(uint8_t j = 0; j < POLYPHONY; j++)
-  {
-    if(_NoteOn[next][track][j].degree != 15)
-    {
-      buildNote(
-          _NoteOn[next][track][j].degree,
-          _NoteOn[next][track][j].octave,
-          _NoteOn[next][track][j].duration,
-          noteCounter,
-          track);
-
-        //count the notes for the trigger
-        noteCounter++;
-     }
-  }
-  loaded[track] = true;
+  last->duration = 0;
+  last->degree = 15;
+  last->octave = 0;
 }
 
 void Engine::durationTracker(uint8_t track)
@@ -452,6 +366,9 @@ void Engine::durationTracker(uint8_t track)
 
 void Engine::triggerNotes(uint8_t track)
 {
+  if(trackMute[track])
+    return;
+    
   uint8_t midiNote;
   uint8_t degree;
 
@@ -459,14 +376,14 @@ void Engine::triggerNotes(uint8_t track)
   
   for(uint8_t i = 0; i < POLYPHONY; i++)
   {
-    degree = _NoteOn[seqPosition[i]][track][i].degree;
+    degree = _NoteOn[seqPosition[track]][track][i].degree;
 
     //just incase keep looking
     if(degree == 15)
       continue;
 
     //space has note data, scale the data
-    midiNote = table[trackScale[track]][degree] + _NoteOn[seqPosition[i]][track][i].octave * 12 + key[track];
+    midiNote = table[trackScale[track]][degree] + _NoteOn[seqPosition[track]][track][i].octave * 12 + key[track];
 
     //better check the "virtual key board" to see if the note is already sounding on this track
     if(keysOn[track][midiNote])
@@ -480,7 +397,7 @@ void Engine::triggerNotes(uint8_t track)
 
     //update polyphony management array
     
-    NoteOutbox[track][polyIndex[track]].duration =  _NoteOn[seqPosition[i]][track][i].duration;
+    NoteOutbox[track][polyIndex[track]].duration =  _NoteOn[seqPosition[track]][track][i].duration;
     NoteOutbox[track][polyIndex[track]].note =  midiNote;
 
     //shift the index to accept the next note
@@ -488,28 +405,14 @@ void Engine::triggerNotes(uint8_t track)
    }
     
 }
-//tbd
-void Engine::buildNote(uint8_t degree, uint8_t octave, uint8_t duration, uint8_t counter, uint8_t track)
-{ 
-  //for(uint8_t i = 0; i < 16; i++)
-  //{ 
-    if(NoteOutbox[track][degree].duration == 0)
-    {
-      NoteOutbox[track][degree].duration = duration;  
-      NoteOutbox[track][degree].note = table[trackScale[track]][degree] + octave * 12 + OFFSET;
-      NoteOutbox[track][degree].type = 1;
-      //break;
-    }
- // }
-}
 
 uint8_t Engine::quantize(uint8_t track)
 {
   unsigned long writeNow = millis();
 
-  unsigned long thirty_second = sixteenth / 2;
+  unsigned long midpoint = *division[track] / 2;
 
-  if(writeNow <= (nextBeat[track] - thirty_second))
+  if(writeNow <= (nextBeat[track] - midpoint))
     return seqPosition[trackRecord];
 
   if((seqPosition[trackRecord] + 1) >= loopPoint[trackRecord])
@@ -535,7 +438,7 @@ void Engine::toggleRecord()
 
 uint8_t Engine::getPosition(uint8_t track)
 {
-  return seqPosition[track];
+  return tempo;
 }
 
 uint8_t Engine::getWrite(uint8_t track)
@@ -585,6 +488,24 @@ uint8_t Engine::getNextPosition(uint8_t track)
   return 0;
 }
 
+void Engine::pageUp(uint8_t track)
+{
+
+  startPoint[track] = (startPoint[track] + 16) % STEPS;
+  loopPoint[track] = (loopPoint[track] + 16) % STEPS;
+  seqPosition[track] = startPoint[track];
+  
+}
+
+void Engine::pageDown(uint8_t track)
+{
+
+  startPoint[track] = (startPoint[track] - 16) % STEPS;
+  loopPoint[track] = (loopPoint[track] - 16) % STEPS;
+  seqPosition[track] = startPoint[track];
+  
+}
+
 void Engine::changeDirection(uint8_t track)
 {
   seqDirection[track] = (seqDirection[track] + 1) % 3 ;
@@ -628,14 +549,46 @@ void Engine::keyDown()
   return;
 }
 
+void Engine::muteTrack()
+{
+  trackMute[trackRecord] = trackMute[trackRecord] ? false : true;
+}
+
+void Engine::muteTrack(uint8_t track)
+{
+  trackMute[track] = trackMute[track] ? false : true;
+}
+
+void Engine::muteAll()
+{
+  for(uint8_t i = 0; i < TRACKS; i++)
+  {
+    trackMute[i] = false;
+  }
+}
+
+void Engine::initializeTrack()
+{
+  _stop();
+    
+  for(uint8_t i = 0; i < STEPS; i++)
+  {
+    for(uint8_t j = 0; j < POLYPHONY; j++)
+    {
+      _NoteOn[i][trackRecord][j].degree = 15;
+    }
+  }
+  
+}
+
 void Engine::setDivision()
 {
   //later
 }
 
-void Engine::setLoopPoint(uint8_t track, uint8_t point)
+void Engine::setLoopPoint(uint8_t point)
 {
-  loopPoint[track] = point;
+  loopPoint[trackRecord] = point;
   
   return;
 }
@@ -702,7 +655,7 @@ void Engine::setTrackScale(uint8_t scale)
 
 void Engine::construction(uint8_t algorithm)
 {
-  /*
+  
   for (uint8_t i = 0; i < TRACKS - 1; i++)
   {
     if(writeEnabled[i])
@@ -710,117 +663,128 @@ void Engine::construction(uint8_t algorithm)
       switch(algorithm)
       {
         case 1:
-        //shift scope up "page up"
-        startPoint[i] = (startPoint[i] + 16) % STEPS;
-        loopPoint[i] = (loopPoint[i] + 16) % STEPS;
+          //shift scope up "page up"
+          startPoint[i] = (startPoint[i] + 16) % STEPS;
+          loopPoint[i] = (loopPoint[i] + 16) % STEPS;
+        break;
         
         case 2:
-        //basic fugue
-        uint8_t loc = (loopPoint[i] - startPoint[i]) * 2 + 1;
-        
-        for(uint8_t j = startPoint[i]; j < loopPoint[i]; j++)
-        {
-          for(uint8_t k = 0; k < POLYPHONY; k++)
+          //basic fugue
+          uint8_t loc_fugue;
+          loc_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1) % STEPS;
+          
+          for(uint8_t j = startPoint[i]; j < loopPoint[i]; j++)
           {
-            if(_NoteOn[j][i][k].degree != 15)
+            for(uint8_t k = 0; k < POLYPHONY; k++)
             {
-              if((_NoteOn[j][i][k].degree + 4) > 11)
+              if(_NoteOn[j][i][k].degree != 15)
               {
-                _NoteOn[j + loc][i][k].duration = _NoteOn[j][i][k].duration;
-                _NoteOn[j + loc][i][k].degree = (_NoteOn[j][i][k].degree + 4) % 8;
-                _NoteOn[j + loc][i][k].octave = _NoteOn[j][i][k].octave;
-                
-              } else {
-                _NoteOn[j + loc][i][k].duration = _NoteOn[j][i][k].duration;
-                _NoteOn[j + loc][i][k].degree = _NoteOn[j][i][k].degree + 4;
-                _NoteOn[j + loc][i][k].octave = _NoteOn[j][i][k].octave;
-                
+                if((_NoteOn[j][i][k].degree + 4) > 11)
+                {
+                  _NoteOn[(j + loc_fugue) % STEPS][i][k].duration = _NoteOn[j][i][k].duration;
+                  _NoteOn[(j + loc_fugue) % STEPS][i][k].degree = (_NoteOn[j][i][k].degree + 4) % 8;
+                  _NoteOn[(j + loc_fugue) % STEPS][i][k].octave = _NoteOn[j][i][k].octave + 1;
+                  
+                } else {
+                  _NoteOn[(j + loc_fugue) % STEPS][i][k].duration = _NoteOn[j][i][k].duration;
+                  _NoteOn[(j + loc_fugue) % STEPS][i][k].degree = _NoteOn[j][i][k].degree + 4;
+                  _NoteOn[(j + loc_fugue) % STEPS][i][k].octave = _NoteOn[j][i][k].octave;
+                  
+                }
               }
             }
           }
-        }
-        loopPoint[i] = loc;
-        
+          loopPoint[i] = loc_fugue;
+          startPoint[i] = startPoint[i] + 16;
+          break;
+          
         case 3:
         //retrograde inversion
-        
+         break;
         
         case 4:
         //add random note
 
-        bool complete = false;
-        uint8_t newStep;
-        uint8_t newPoly;
-        
-        while()
-        {
-          newStep = random(startPoint[i], loopPoint[i]);
-          newPoly = random(POLYPHONY);
+          bool complete_random_add;
+          complete_random_add = false;
+          uint8_t newStep_random_add;
+          uint8_t newPoly_random_add;
           
-          if(_NoteOn[newStep][i][newPoly].degree == 15)
+          while(!complete_random_add)
           {
+            newStep_random_add = random(startPoint[i], loopPoint[i]);
+            newPoly_random_add = random(POLYPHONY);
             
-            uint8_t newNote = random(12);
-            _NoteOn[newStep][i][newPoly].degree = newNote;
-            _NoteOn[newStep][i][newPoly].octave = octave;
-            _NoteOn[newStep][i][newPoly].duration = millis() % 3;
-
-                         
+            if(_NoteOn[newStep_random_add][i][newPoly_random_add].degree == 15)
+            {
+              
+              uint8_t newNote_random_add = random(12);
+              _NoteOn[newStep_random_add][i][newPoly_random_add].degree = newNote_random_add;
+              _NoteOn[newStep_random_add][i][newPoly_random_add].octave = octave;
+              _NoteOn[newStep_random_add][i][newPoly_random_add].duration = (millis() % 3) + 1;
+  
+                           
+             }
+              
            }
-            
-         }
-        
+           break;
         
         case 5:
         
         //retrograde fugue
-        
-        uint8_t loc = (loopPoint[i] - startPoint[i]) * 2 + 1;
-        
-        for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
-        {
-          for(uint8_t k = 0; k < POLYPHONY; k++)
+          
+          uint8_t loc_retro_fugue;
+          loc_retro_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1) % STEPS;
+          
+          for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
-            if(_NoteOn[j][i][k].degree != 15)
+            for(uint8_t k = 0; k < POLYPHONY; k++)
             {
-              if((_NoteOn[j][i][k].degree + 4) > 11) //change 4 to a DEFINE and create a fugue harmony variable that can be changed
+              if(_NoteOn[j][i][k].degree != 15)
               {
-                _NoteOn[loc - j][i][k].degree = (_NoteOn[j][i][k].degree + 4) % 8;
-                _NoteOn[loc - j][i][k].octave = _NoteOn[j][i][k].octave + 1;
-                _NoteOn[loc - j][i][k].duration = _NoteOn[j][i][k].duration;
-              } else {
-                _NoteOn[loc - j][i][k].degree = _NoteOn[j][i][k].degree + 4;
-                _NoteOn[loc - j][i][k].octave = _NoteOn[j][i][k].octave;
-                _NoteOn[loc - j][i][k].duration = _NoteOn[j][i][k].duration;
+                if((_NoteOn[j][i][k].degree + 4) > 11) //change 4 to a DEFINE and create a fugue harmony variable that can be changed
+                {
+                  _NoteOn[loc_retro_fugue - j][i][k].duration = _NoteOn[j][i][k].duration;
+                  _NoteOn[loc_retro_fugue - j][i][k].degree = (_NoteOn[j][i][k].degree + 4) % 8;
+                  _NoteOn[loc_retro_fugue - j][i][k].octave = _NoteOn[j][i][k].octave + 1;
+                  
+                } else {
+                  _NoteOn[loc_retro_fugue - j][i][k].duration = _NoteOn[j][i][k].duration;
+                  _NoteOn[loc_retro_fugue - j][i][k].degree = _NoteOn[j][i][k].degree + 4;
+                  _NoteOn[loc_retro_fugue - j][i][k].octave = _NoteOn[j][i][k].octave;
+                  
+                }
               }
             }
           }
-        }
-        loopPoint[i] = loc;
+          loopPoint[i] = loc_retro_fugue;
+          break;
         
         case 6:
         
         //the "maybe copy"
         
-        uint8_t maybe;
-        uint8_t nextPage = loopPoint[i] + 1;
-
-        for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
-        {
-          for(uint8_t k = 0; k < POLYPHONY; k++)
+          uint8_t maybe;
+          uint8_t nextPage_maybe;
+          nextPage_maybe = loopPoint[i] + 1;
+  
+          for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
-            maybe = random() % 3;
-            
-            if(_NoteOn[j][i][k].degree != 15 && maybe)
+            for(uint8_t k = 0; k < POLYPHONY; k++)
             {
-              _NoteOn[j + nextPage][i][k].duration = _NoteOn[j][i][k].duration;
-              _NoteOn[j + nextPage][i][k].degree = _NoteOn[j][i][k].degree;
-              _NoteOn[j + nextPage][i][k].octave = _NoteOn[j][i][k].octave;           
+              maybe = random() % 5;
+              
+              if(_NoteOn[j][i][k].degree != 15 && maybe)
+              {
+                _NoteOn[j + nextPage_maybe][i][k].duration = _NoteOn[j][i][k].duration;
+                _NoteOn[j + nextPage_maybe][i][k].degree = _NoteOn[j][i][k].degree;
+                _NoteOn[j + nextPage_maybe][i][k].octave = _NoteOn[j][i][k].octave;           
+              }
             }
           }
-        }
-        loopPoint[i] = loopPoint[i] * 2 + 1;
-
+          loopPoint[i] = (loopPoint[i] * 2) + 1;
+          startPoint[i] = nextPage_maybe;
+          break;
         
         case 7:
         //shift scope down
@@ -828,60 +792,66 @@ void Engine::construction(uint8_t algorithm)
         //might not need scope
         
         //actually have to re-write step algorithms to cross from max step to 0 and back
-        
+          break;
         case 8:
         //widen scope
 
         //also the case here
-        
+          break;
         case 9:
         //focus scope
-        if(loopPoint[i] - startPoint[i] >= 2) //check the math here...
-        {
-          startPoint[i] ++;
-          loopPoint[i]--;
-        }
-        
+          if(loopPoint[i] - startPoint[i] >= 2) //check the math here...
+          {
+            startPoint[i] = startPoint[i] + 1;
+            loopPoint[i] = loopPoint[i] - 1;
+          }
+          break;
         
         case 10:
         //repeat
-        uint8_t nextPage = loopPoint[i] + 1;
-        
-        for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
-        {
+          uint8_t nextPage_repeat;
+          nextPage_repeat = loopPoint[i] + 1;
           
-          for(uint8_t k = 0; k < POLYPHONY; k++)
+          for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
-            if(_NoteOn[j][i][k].degree != 15)
+            
+            for(uint8_t k = 0; k < POLYPHONY; k++)
             {
-              _NoteOn[j + nextPage][i][k].duration = _NoteOn[j][i][k].duration;
-              _NoteOn[j + nextPage][i][k].degree = _NoteOn[j][i][k].degree;
-              _NoteOn[j + nextPage][i][k].octave = _NoteOn[j][i][k].octave;           
+              if(_NoteOn[j][i][k].degree != 15)
+              {
+                _NoteOn[j + nextPage_repeat][i][k].duration = _NoteOn[j][i][k].duration;
+                _NoteOn[j + nextPage_repeat][i][k].degree = _NoteOn[j][i][k].degree;
+                _NoteOn[j + nextPage_repeat][i][k].octave = _NoteOn[j][i][k].octave;           
+              }
             }
           }
-        }
-        loopPoint[i] = loopPoint[i] * 2 + 1;
+          loopPoint[i] = (loopPoint[i] * 2) + 1;
+          startPoint[i] = nextPage_repeat;
+          break;
         
         
         case 11:
         //retrograde
 
-        uint8_t loc = (loopPoint[i] - startPoint[i]) * 2 + 1;
-        
-        for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
-        {
+          uint8_t loc_retro;
+          loc_retro = (loopPoint[i] - startPoint[i]) * 2 + 1;
           
-          for(uint8_t k = 0; k < POLYPHONY; k++)
+          for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
-            if(_NoteOn[j][i][k].degree != 15)
+            
+            for(uint8_t k = 0; k < POLYPHONY; k++)
             {
-              _NoteOn[loc - j][i][k].duration = _NoteOn[j][i][k].duration;
-              _NoteOn[loc - j][i][k].degree = _NoteOn[j][i][k].degree;
-              _NoteOn[loc - j][i][k].octave = _NoteOn[j][i][k].octave;           
+              if(_NoteOn[j][i][k].degree != 15)
+              {
+                _NoteOn[loc_retro - j][i][k].duration = _NoteOn[j][i][k].duration;
+                _NoteOn[loc_retro - j][i][k].degree = _NoteOn[j][i][k].degree;
+                _NoteOn[loc_retro - j][i][k].octave = _NoteOn[j][i][k].octave;           
+              }
             }
           }
-        }
-        loopPoint[i] = loc;
+          loopPoint[i] = loc_retro;
+          startPoint[i] = startPoint[i] + 16;
+          break;
         
         case 12:
         //add octave double
@@ -901,17 +871,17 @@ void Engine::construction(uint8_t algorithm)
         case 19:
         //midi delay
         default:
-           continue;
+           break;
       }
     }
   }
-  */
+  
 
 }
 
 void Engine::destruction(uint8_t algorithm)
 {
-  /*
+  
   for (uint8_t i = 0; i < TRACKS - 1; i++)
   {
     if(writeEnabled[i])
@@ -921,29 +891,30 @@ void Engine::destruction(uint8_t algorithm)
         case 1:
         //erase random note
     
-        bool complete2 = false;
-        uint8_t newStep;
-        uint8_t newPoly;
+        bool complete_random_erase;
+        complete_random_erase = false;
+        uint8_t newStep_random_erase;
+        uint8_t newPoly_random_erase;
             
-        while(!complete2)
+        while(!complete_random_erase)
         {
-          newStep = random(startPoint[i], loopPoint[i]);
-          newPoly = random(POLYPHONY);
+          newStep_random_erase = random(startPoint[i], loopPoint[i]);
+          newPoly_random_erase = random(POLYPHONY);
           
-          if(_NoteOn[newStep][i][newPoly].degree != 15)
+          if(_NoteOn[newStep_random_erase][i][newPoly_random_erase].degree != 15)
           {
             
-            _NoteOn[newStep][i][newPoly].degree = 15;
-            _NoteOn[newStep][i][newPoly].octave = 0;
-            _NoteOn[newStep][i][newPoly].duration = 0;
-            complete2 = true;
+            _NoteOn[newStep_random_erase][i][newPoly_random_erase].degree = 15;
+            _NoteOn[newStep_random_erase][i][newPoly_random_erase].octave = 0;
+            _NoteOn[newStep_random_erase][i][newPoly_random_erase].duration = 0;
+            complete_random_erase = true;
                          
            }
             
          }
         case 2:
         //erase lowest notes
-        
+        /*
         for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
         {
               
@@ -968,13 +939,14 @@ void Engine::destruction(uint8_t algorithm)
             }
           }
         }
+        */
         case 3:
         //erase highest notes
         case 4:
         //double space
     
         //needs copy array slot
-        
+        /*
         for(uint8_t j = 255; j > 0; j--)
         {
           for(uint8_t k = 0; k < POLYPHONY; k++)
@@ -983,7 +955,7 @@ void Engine::destruction(uint8_t algorithm)
             
           }
         }
-        
+        */
         case 5:
         //tripple space
         case 6:
@@ -1029,7 +1001,7 @@ void Engine::destruction(uint8_t algorithm)
       }
     }
   }   
-  */
+  
 }
 
 uint8_t Engine::printScales(uint8_t x, uint8_t y)

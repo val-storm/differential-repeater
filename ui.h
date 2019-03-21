@@ -27,6 +27,7 @@
 #define SCALE_CODE       0b1000000000
 #define UTIL_CODE        0b10000000000
 #define ALGORITHM_CODE   0b100000000000
+#define OPMODE_CODE      0b110000000000
 #define LONG_TIME          3000
 #define READ_REG           0xFFF
 #define REC                8
@@ -46,6 +47,7 @@ class ui {
     uint16_t reg12;
     uint8_t lowCode;
     uint8_t highCode;
+    bool opMode = false;
     uint16_t getStuff();
     struct control {
       bool current:4;
