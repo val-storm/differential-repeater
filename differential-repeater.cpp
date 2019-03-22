@@ -98,7 +98,7 @@ void Engine::_begin()
   
   for (uint8_t i = 0; i < TRACKS; i++)
   {
-    division[i] = &sixteenth;
+    division[i] = & sixteenth;
   }
  
 
@@ -570,14 +570,15 @@ void Engine::muteAll()
 void Engine::initializeTrack()
 {
   _stop();
-    
-  for(uint8_t i = 0; i < STEPS; i++)
-  {
+
+  uint8_t i = 0;
+ 
+  do {
     for(uint8_t j = 0; j < POLYPHONY; j++)
     {
       _NoteOn[i][trackRecord][j].degree = 15;
     }
-  }
+  } while(i++ != 255);
   
 }
 
@@ -662,44 +663,19 @@ void Engine::construction(uint8_t algorithm)
     {
       switch(algorithm)
       {
-        case 1:
-          //shift scope up "page up"
-          startPoint[i] = (startPoint[i] + 16) % STEPS;
-          loopPoint[i] = (loopPoint[i] + 16) % STEPS;
+        case 0:
+         toggleWriteEnabled(0);
         break;
+
+        case 1:
+          toggleWriteEnabled(1);
         
         case 2:
-          //basic fugue
-          uint8_t loc_fugue;
-          loc_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1) % STEPS;
           
-          for(uint8_t j = startPoint[i]; j < loopPoint[i]; j++)
-          {
-            for(uint8_t k = 0; k < POLYPHONY; k++)
-            {
-              if(_NoteOn[j][i][k].degree != 15)
-              {
-                if((_NoteOn[j][i][k].degree + 4) > 11)
-                {
-                  _NoteOn[(j + loc_fugue) % STEPS][i][k].duration = _NoteOn[j][i][k].duration;
-                  _NoteOn[(j + loc_fugue) % STEPS][i][k].degree = (_NoteOn[j][i][k].degree + 4) % 8;
-                  _NoteOn[(j + loc_fugue) % STEPS][i][k].octave = _NoteOn[j][i][k].octave + 1;
-                  
-                } else {
-                  _NoteOn[(j + loc_fugue) % STEPS][i][k].duration = _NoteOn[j][i][k].duration;
-                  _NoteOn[(j + loc_fugue) % STEPS][i][k].degree = _NoteOn[j][i][k].degree + 4;
-                  _NoteOn[(j + loc_fugue) % STEPS][i][k].octave = _NoteOn[j][i][k].octave;
-                  
-                }
-              }
-            }
-          }
-          loopPoint[i] = loc_fugue;
-          startPoint[i] = startPoint[i] + 16;
           break;
           
         case 3:
-        //retrograde inversion
+         toggleWriteEnabled(3);
          break;
         
         case 4:
@@ -734,7 +710,7 @@ void Engine::construction(uint8_t algorithm)
         //retrograde fugue
           
           uint8_t loc_retro_fugue;
-          loc_retro_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1) % STEPS;
+          loc_retro_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1);
           
           for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
@@ -757,7 +733,10 @@ void Engine::construction(uint8_t algorithm)
               }
             }
           }
+          //startPoint[i] = loopPoint[i] + 1;
           loopPoint[i] = loc_retro_fugue;
+          seqPosition[i] = startPoint[i];
+          Serial.println("Hey");
           break;
         
         case 6:
@@ -783,16 +762,41 @@ void Engine::construction(uint8_t algorithm)
             }
           }
           loopPoint[i] = (loopPoint[i] * 2) + 1;
-          startPoint[i] = nextPage_maybe;
+          //startPoint[i] = nextPage_maybe;
+          seqPosition[i] = startPoint[i];
           break;
         
         case 7:
-        //shift scope down
-
-        //might not need scope
-        
-        //actually have to re-write step algorithms to cross from max step to 0 and back
+         //basic fugue
+          uint8_t loc_fugue;
+          loc_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1);
+          
+          for(uint8_t j = startPoint[i]; j < loopPoint[i]; j++)
+          {
+            for(uint8_t k = 0; k < POLYPHONY; k++)
+            {
+              if(_NoteOn[j][i][k].degree != 15)
+              {
+                if((_NoteOn[j][i][k].degree + 4) > 11)
+                {
+                  _NoteOn[(j + loc_fugue)][i][k].duration = _NoteOn[j][i][k].duration;
+                  _NoteOn[(j + loc_fugue)][i][k].degree = (_NoteOn[j][i][k].degree + 4) % 8;
+                  _NoteOn[(j + loc_fugue)][i][k].octave = _NoteOn[j][i][k].octave + 1;
+                  
+                } else {
+                  _NoteOn[(j + loc_fugue)][i][k].duration = _NoteOn[j][i][k].duration;
+                  _NoteOn[(j + loc_fugue)][i][k].degree = _NoteOn[j][i][k].degree + 4;
+                  _NoteOn[(j + loc_fugue)][i][k].octave = _NoteOn[j][i][k].octave;
+                  
+                }
+              }
+            }
+          }
+          loopPoint[i] = loc_fugue;
+          //startPoint[i] = startPoint[i] + 16;
+          seqPosition[i] = startPoint[i];
           break;
+          
         case 8:
         //widen scope
 
@@ -800,14 +804,19 @@ void Engine::construction(uint8_t algorithm)
           break;
         case 9:
         //focus scope
-          if(loopPoint[i] - startPoint[i] >= 2) //check the math here...
-          {
-            startPoint[i] = startPoint[i] + 1;
-            loopPoint[i] = loopPoint[i] - 1;
-          }
+          toggleWriteEnabled(9);
           break;
         
         case 10:
+        
+          break;
+        
+        
+        case 11:
+
+          break;
+        
+        case 12:
         //repeat
           uint8_t nextPage_repeat;
           nextPage_repeat = loopPoint[i] + 1;
@@ -826,11 +835,11 @@ void Engine::construction(uint8_t algorithm)
             }
           }
           loopPoint[i] = (loopPoint[i] * 2) + 1;
-          startPoint[i] = nextPage_repeat;
+          //startPoint[i] = nextPage_repeat;
+          seqPosition[i] = startPoint[i];
           break;
         
-        
-        case 11:
+        case 13:
         //retrograde
 
           uint8_t loc_retro;
@@ -851,13 +860,9 @@ void Engine::construction(uint8_t algorithm)
           }
           loopPoint[i] = loc_retro;
           startPoint[i] = startPoint[i] + 16;
+          seqPosition[i] = startPoint[i];
           break;
-        
-        case 12:
-        //add octave double
-        
-        case 13:
-        //add harmony (lfo determines interval?)
+          
         case 14:
         //add fugue octave
         case 15:

@@ -62,6 +62,11 @@ void ui::readTouch(uint16_t touch) {
     }
   }
   
+  if(lowCode && touch & UP_CODE)
+  {
+  
+  }
+  
   
   //set track scale mode (hold track and tap scale)
   if(lowCode && touch & SCALE_CODE)
@@ -74,7 +79,10 @@ void ui::readTouch(uint16_t touch) {
   
   if(lowCode && touch & ALGORITHM_CODE)
   { 
-    sequencer->construction(track + 1);
+    if(track < 4 || (track > 7 && track < 12))
+      sequencer->toggleWriteEnabled(track);
+    else
+      sequencer->construction(track);
     return;  
   }
 
@@ -131,12 +139,11 @@ void ui::readTouch(uint16_t touch) {
     //_record.current = true;
     return;
   }
-//
-//  if(!(touch & RECORD_CODE) && _record.current)
-//  {
-//    _record.current = false;
-//    
-//  }
+  if(touch == RESTART_CODE)
+  {
+    CPU_RESTART
+  }
+
 
   
   

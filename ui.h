@@ -27,11 +27,15 @@
 #define SCALE_CODE       0b1000000000
 #define UTIL_CODE        0b10000000000
 #define ALGORITHM_CODE   0b100000000000
-#define OPMODE_CODE      0b110000000000
+#define RESTART_CODE     0b111000000000
 #define LONG_TIME          3000
 #define READ_REG           0xFFF
 #define REC                8
 #define SCALE              9
+#define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
+#define CPU_RESTART_VAL 0x5FA0004
+#define CPU_RESTART (*CPU_RESTART_ADDR = CPU_RESTART_VAL);
+
 //#ifndef _BV
 //#define _BV(bit) (1 << (bit)) 
 //#endif

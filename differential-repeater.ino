@@ -123,11 +123,11 @@ void loop() {
 
   updateShiftRegister();
 
-//  for(uint8_t i = 0; i < 16; i++)
-//  {
-//    Serial.print(starfield.getPosition(i));
-//  }
-//  Serial.println();
+  for(uint8_t i = 0; i < 16; i++)
+  {
+    Serial.print(starfield.getWrite(i));
+  }
+  Serial.println();
   int8_t newLeft, newRight;
   newLeft = knobLeft.read();
   newRight = knobRight.read();
@@ -141,7 +141,7 @@ void loop() {
   }
 
     //Serial.println(controlRegister);
-    delay(10);
+    delay(100);
   return;
   /*
   // debugging info, what
