@@ -123,11 +123,11 @@ void loop() {
 
   updateShiftRegister();
 
-  for(uint8_t i = 0; i < 16; i++)
-  {
-    Serial.print(starfield.getWrite(i));
-  }
-  Serial.println();
+//  for(uint8_t i = 0; i < 16; i++)
+//  {
+//    Serial.print(starfield.getPosition(i));
+//  }
+//  Serial.println();
   int8_t newLeft, newRight;
   newLeft = knobLeft.read();
   newRight = knobRight.read();
@@ -141,7 +141,7 @@ void loop() {
   }
 
     //Serial.println(controlRegister);
-    delay(100);
+    //delay(100);
   return;
   /*
   // debugging info, what
@@ -174,16 +174,19 @@ void loop() {
 
 void midiOut(uint8_t note, uint8_t type, uint8_t channel)
 {
-  
+
   if(type == 1)
   {
-    MIDI.sendNoteOn(note, 99, channel);
+   // MIDI.sendNoteOn(note, 99, channel);
+
     usbMIDI.sendNoteOn(note, 99, channel);
+    //Serial.println("hey");
+
   }
   
   if(type == 0)
   {
-    MIDI.sendNoteOff(note, 0, channel);
+    //MIDI.sendNoteOff(note, 0, channel);
     usbMIDI.sendNoteOff(note, 0, channel);
   }
   

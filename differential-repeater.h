@@ -127,6 +127,14 @@ class Engine
     {
       unsigned long startTime;
       uint8_t  startStep;
+      uint8_t  bufferStep;
+    };
+
+    struct Buffer
+    {
+      uint8_t location;
+      bool isOn;
+      Buffer(): location(0), isOn(0) {}
     };
     
     Space _NoteOn[STEPS][17][POLYPHONY];
@@ -134,6 +142,8 @@ class Engine
     Note NoteOutbox[TRACKS][POLYPHONY];
     
     Timer polycounter[POLYPHONY];
+
+    Buffer ringBuffer[16];
 
     Space * last = NULL;
 
@@ -172,6 +182,8 @@ class Engine
     uint8_t quantize(uint8_t track);
     uint8_t getNextPosition(uint8_t track);
     void durationTracker(uint8_t track);
+    void bufferOverwrite();
     void triggerNotes(uint8_t track);
+    void triggerNotes(uint8_t track, uint16_t bufferStep);
 };
 #endif     

@@ -77,6 +77,7 @@ void Engine::_begin()
   {
     polycounter[i].startTime = 0;
     polycounter[i].startStep = 0;
+    polycounter[i].bufferStep = 0;
   }
   //Initialize Note Outbox arrays
   //These are set to accomodate the possibility of all 16 tracks playing
@@ -112,9 +113,13 @@ void Engine::_begin()
 
   scale = 0;
 
-  //key = OFFSET;
+  ringBuffer[0].location = 4;
+  ringBuffer[1].location = 5;
+  ringBuffer[2].location = 6;
+  ringBuffer[3].location = 7;
 
-
+  ringBuffer[0].isOn = true;
+  
   previousKeys = 0;
   
   isRunning = false;
@@ -128,7 +133,7 @@ void Engine::_begin()
   trackRecord = 0;
   
 
-  
+  loopPoint[4] = 255;
   
 }
 
@@ -236,6 +241,8 @@ void Engine::_step(uint8_t track)
 {
 
   durationTracker(track);
+
+  bufferOverwrite();
   
   if(seqDirection[track] == 0)
   {
@@ -266,6 +273,20 @@ void Engine::_step(uint8_t track)
   
   
   triggerNotes(track);
+
+  
+  if(ringBuffer[track].isOn)
+  {
+    
+    uint16_t i = seqPosition[track];
+    uint8_t seqLength = loopPoint[track] - startPoint[track];
+    do {
+      //Serial.println("hey");
+      triggerNotes(ringBuffer[track].location, i);
+      i += seqLength;
+      
+    } while(i <= 255); 
+  }
     
 
 }
@@ -278,15 +299,19 @@ void Engine::writeNoteOn(uint8_t degree)
   
   midicb(table[trackScale[trackRecord]][degree] + octave * 12 + key[trackRecord], 1, trackRecord + 1);
 
+  //quantize ring buffer write location
+  polycounter[degree].bufferStep = quantize(ringBuffer[trackRecord].location);
+  polycounter[degree].startTime = millis();
+  
+
   //don't write if not recording
   if(!isRecording)
     return;
     
   //lock in a step to write to
   uint8_t quantizedPosition = quantize(trackRecord);
-  
-  polycounter[degree].startTime = millis();
   polycounter[degree].startStep = quantizedPosition;
+  
   
 }
 
@@ -296,16 +321,34 @@ void Engine::writeNoteOff(uint8_t degree)
   
   midicb(table[trackScale[trackRecord]][degree] + octave * 12 + key[trackRecord], 0, trackRecord + 1);
 
+  //get duration
+  uint8_t duration = (millis() - polycounter[degree].startTime) / * division[trackRecord];
+
+  if(duration < 1)
+    duration = 1;
+
+  //write to ring buffer
+  uint8_t bufferStep = polycounter[degree].bufferStep;
+
+  for(uint8_t i = 0; i < POLYPHONY; i++)
+  {
+    if(_NoteOn[bufferStep][ringBuffer[trackRecord].location][i].degree == 15)
+    {
+      _NoteOn[bufferStep][ringBuffer[trackRecord].location][i].duration = duration;
+      _NoteOn[bufferStep][ringBuffer[trackRecord].location][i].degree = degree;
+      _NoteOn[bufferStep][ringBuffer[trackRecord].location][i].octave = octave;
+      break;
+    }
+    
+  }
+
   //still don't record if not recording
   if(!isRecording)
     return;
     
   uint8_t writeStep = polycounter[degree].startStep;
   
-  uint8_t duration = (millis() - polycounter[degree].startTime) / *division[trackRecord];
-
-  if(duration < 1)
-    duration = 1;
+  
     
   //find an open 'space' then stop looking for one
   
@@ -364,6 +407,19 @@ void Engine::durationTracker(uint8_t track)
   polyIndex[track] = counter;
 }
 
+void Engine::bufferOverwrite()
+{
+  for(uint8_t i = 4; i < 8; i++)
+  {
+    //Serial.println("hey");
+    for(uint8_t j = 0; j < POLYPHONY; j++)
+    {
+      _NoteOn[seqPosition[i]][i][j].degree = 15;
+    }
+  }
+  return;
+}
+
 void Engine::triggerNotes(uint8_t track)
 {
   if(trackMute[track])
@@ -406,19 +462,63 @@ void Engine::triggerNotes(uint8_t track)
     
 }
 
+//OVERLOADED TRIGGERNOTES FUNCTION FOR BUFFERS
+
+void Engine::triggerNotes(uint8_t track, uint16_t bufferStep)
+{
+  if(trackMute[track])
+    return;
+    
+  uint8_t midiNote;
+  uint8_t degree;
+
+  //iterate over 'spaces' for initiated data
+  
+  for(uint8_t i = 0; i < POLYPHONY; i++)
+  {
+    degree = _NoteOn[bufferStep][track][i].degree;
+
+    //just incase keep looking
+    if(degree == 15)
+      continue;
+
+    //space has note data, scale the data
+    midiNote = table[trackScale[track]][degree] + _NoteOn[bufferStep][track][i].octave * 12 + key[track];
+
+    //better check the "virtual key board" to see if the note is already sounding on this track
+    if(keysOn[track][midiNote])
+      continue;
+    
+    //all good, so, sound the note! *MIDI doesn't have track zero*
+    midicb(midiNote, 1, (track + 1));
+
+    //update keyboard
+    keysOn[track][midiNote] = true;
+
+    //update polyphony management array
+    
+    NoteOutbox[track][polyIndex[track]].duration =  _NoteOn[bufferStep][track][i].duration;
+    NoteOutbox[track][polyIndex[track]].note =  midiNote;
+    Serial.println(NoteOutbox[track][polyIndex[track]].duration);
+    //shift the index to accept the next note
+    polyIndex[track] = polyIndex[track] + 1;
+   }
+    
+}
 uint8_t Engine::quantize(uint8_t track)
 {
+  //Serial.println("hey");
   unsigned long writeNow = millis();
 
   unsigned long midpoint = *division[track] / 2;
 
   if(writeNow <= (nextBeat[track] - midpoint))
-    return seqPosition[trackRecord];
+    return seqPosition[track];
 
-  if((seqPosition[trackRecord] + 1) >= loopPoint[trackRecord])
-    return startPoint[trackRecord];
+  if((seqPosition[track] + 1) >= loopPoint[track])
+    return startPoint[track];
 
-  return seqPosition[trackRecord] + 1;
+  return seqPosition[track] + 1;
 }
 
 /*******************************************
@@ -438,7 +538,7 @@ void Engine::toggleRecord()
 
 uint8_t Engine::getPosition(uint8_t track)
 {
-  return tempo;
+  return * division[track];
 }
 
 uint8_t Engine::getWrite(uint8_t track)

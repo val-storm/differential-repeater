@@ -64,10 +64,35 @@ void ui::readTouch(uint16_t touch) {
   
   if(lowCode && touch & UP_CODE)
   {
-  
+    if(track == 16)
+    {
+      //loop point 16 up on track record
+      return;
+    }
+    if(track == 17)
+    {
+      //start point up 16 on track record
+      return;
+    }
+    sequencer->pageUp(track);
+    return;
   }
   
-  
+  if(lowCode && touch & DOWN_CODE)
+  {
+    if(track == 16)
+    {
+      //loop point 16 down on track record
+      return;
+    }
+    if(track == 17)
+    {
+      //start point down 16 on track record
+      return;
+    }
+    sequencer->pageUp(track);
+    return;
+  }
   //set track scale mode (hold track and tap scale)
   if(lowCode && touch & SCALE_CODE)
   {
