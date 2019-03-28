@@ -175,19 +175,7 @@ void loop() {
 void midiOut(uint8_t note, uint8_t type, uint8_t channel)
 {
   
-  if(type == 1)
-  {
-    MIDI.sendNoteOn(note, 99, channel);
-    usbMIDI.sendNoteOn(note, 99, channel);
-  }
-  
-  if(type == 0)
-  {
-    MIDI.sendNoteOff(note, 0, channel);
-    usbMIDI.sendNoteOff(note, 0, channel);
-  }
-  
-  
+  usbMIDI.sendControlChange(note % 29, random(0, 127), 10);
   
 }
 
