@@ -736,7 +736,7 @@ void Engine::construction(uint8_t algorithm)
           //startPoint[i] = loopPoint[i] + 1;
           loopPoint[i] = loc_retro_fugue;
           seqPosition[i] = startPoint[i];
-          Serial.println("Hey");
+          //Serial.println("Hey");
           break;
         
         case 6:
