@@ -2,6 +2,8 @@
 #include "Adafruit_MPR121.h"
 #include "differential-repeater.h"
 #include "ui.h"
+#include <Adafruit_GFX.h>
+#include "Adafruit_LEDBackpack.h"
 #include <MIDI.h>
 #include <Encoder.h>
 
@@ -11,6 +13,7 @@
 
 Adafruit_MPR121 keys = Adafruit_MPR121();
 Adafruit_MPR121 controls = Adafruit_MPR121();
+Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 
 // State change variable
 uint16_t lasttouchedKeys = 0;
@@ -66,11 +69,18 @@ void setup() {
   }
  // Serial.println("MPR121 found!");
 
+  //init display
+  alpha4.begin(0x70);
+
+  alpha4.writeDisplay();
+  
   //init sequencer engine
   starfield._begin();
 
   //pass the main sketch midi method to the sequencer 
   starfield.setMidiHandler(midiOut);
+
+  starfield.setStepSignal(displayStep);
 
   //pass the sequencer class instance to the UI
   touchUI._begin(& starfield);
@@ -86,6 +96,61 @@ void setup() {
 //  starfield.setLoopPoint(3, 77);
 //  starfield.setLoopPoint(9, 14);
 //  starfield.setLoopPoint(1, 16);
+
+/*
+ * HARDCODED PERFORMANCE MODE
+ */
+
+  starfield.setDivision(1, 0);
+  starfield.setDivision(0, 1);
+  starfield.setDivision(2, 2);
+  starfield.setDivision(3, 3);
+  starfield.setDivision(1, 4);
+  starfield.setDivision(0, 5);
+  starfield.setDivision(2, 6);
+  starfield.setDivision(3, 7);
+  starfield.setDivision(0, 8);
+  starfield.setDivision(3, 9);
+  starfield.setDivision(1, 10);
+  starfield.setDivision(1, 11);
+  starfield.setDivision(0, 12);
+  starfield.setDivision(0, 13);
+  starfield.setDivision(2, 14);
+  starfield.setDivision(3, 15);
+
+  starfield.assignMidi(0, 1);
+  starfield.assignMidi(1, 1);
+  starfield.assignMidi(2, 1);
+  starfield.assignMidi(3, 1);
+  starfield.assignMidi(4, 4);
+  starfield.assignMidi(5, 4);
+  starfield.assignMidi(6, 4);
+  starfield.assignMidi(7, 4);
+  starfield.assignMidi(8, 2);
+  starfield.assignMidi(9, 2);
+  starfield.assignMidi(10, 10);
+  starfield.assignMidi(11, 10);
+  starfield.assignMidi(12, 10);
+  starfield.assignMidi(13, 10);
+  starfield.assignMidi(14, 10);
+  starfield.assignMidi(15, 10);
+
+  starfield.setTrackScale(1, 0);
+  starfield.setTrackScale(1, 1);
+  starfield.setTrackScale(1, 2);
+  starfield.setTrackScale(1, 3);
+  starfield.setTrackScale(1, 4);
+  starfield.setTrackScale(1, 5);
+  starfield.setTrackScale(1, 6);
+  starfield.setTrackScale(1, 7);
+  starfield.setTrackScale(1, 8);
+  starfield.setTrackScale(1, 9);
+  starfield.setTrackScale(12, 10);
+  starfield.setTrackScale(12, 11);
+  starfield.setTrackScale(12, 12);
+  starfield.setTrackScale(12, 13);
+  starfield.setTrackScale(12, 14);
+  starfield.setTrackScale(12, 15);
 
 
 }
@@ -179,16 +244,27 @@ void midiOut(uint8_t note, uint8_t type, uint8_t channel)
   {
     MIDI.sendNoteOn(note, 99, channel);
     usbMIDI.sendNoteOn(note, 99, channel);
+    //alpha4.writeDigitRaw(0, type);
   }
   
   if(type == 0)
   {
     MIDI.sendNoteOff(note, 0, channel);
     usbMIDI.sendNoteOff(note, 0, channel);
+    //alpha4.writeDigitRaw(0, type);
   }
   
   
   
+}
+
+void displayStep()
+{
+  for(uint8_t i = 0; i < 4; i++)
+  {
+    alpha4.writeDigitRaw(i, random(65535));
+  }
+  alpha4.writeDisplay();
 }
 
 void updateShiftRegister()

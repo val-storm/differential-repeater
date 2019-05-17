@@ -55,7 +55,9 @@ void Engine::_begin()
   }
   for (uint8_t i = 0; i < TRACKS; i++)
   {
-    trackScale[i] = 0; 
+    trackScale[i] = 0;
+    trackLength[i] = 16;
+    midiAssign[i] = i + 1;
   }
    for (uint8_t i = 0; i < TRACKS; i++)
   {
@@ -154,6 +156,9 @@ void Engine::transport()
     _step(i);
 
     nextBeat[i] = _now + *division[i];
+
+    if(i == 0)
+      stepcb();
   }
 
 }
@@ -224,6 +229,11 @@ void Engine::setMidiHandler(MIDIcallback cb)
 {
   midicb = cb;
 }
+
+void Engine::setStepSignal(STEPcallback cb)
+{
+  stepcb = cb;
+}
   
 void Engine::tick()
 {
@@ -266,7 +276,8 @@ void Engine::_step(uint8_t track)
   
   
   triggerNotes(track);
-    
+
+  
 
 }
 
@@ -276,7 +287,7 @@ void Engine::writeNoteOn(uint8_t degree)
   
   //sound the scaled note
   
-  midicb(table[trackScale[trackRecord]][degree] + octave * 12 + key[trackRecord], 1, trackRecord + 1);
+  midicb(table[trackScale[trackRecord]][degree] + octave * 12 + key[trackRecord], 1, midiAssign[trackRecord]);
 
   //don't write if not recording
   if(!isRecording)
@@ -294,7 +305,7 @@ void Engine::writeNoteOff(uint8_t degree)
 {
   //off the scaled note
   
-  midicb(table[trackScale[trackRecord]][degree] + octave * 12 + key[trackRecord], 0, trackRecord + 1);
+  midicb(table[trackScale[trackRecord]][degree] + octave * 12 + key[trackRecord], 0, midiAssign[trackRecord]);
 
   //still don't record if not recording
   if(!isRecording)
@@ -339,8 +350,8 @@ void Engine::durationTracker(uint8_t track)
   {
     
     if(NoteOutbox[track][i].duration == 1)
-      midicb(NoteOutbox[track][i].note, 0, track + 1);
-      keysOn[track][NoteOutbox[track][i].note] = false;
+      midicb(NoteOutbox[track][i].note, 0, midiAssign[track]);
+      keysOn[midiAssign[track]][NoteOutbox[track][i].note] = false;
     
     if(NoteOutbox[track][i].duration > 0)
       NoteOutbox[track][i].duration = NoteOutbox[track][i].duration - 1;
@@ -371,6 +382,9 @@ void Engine::triggerNotes(uint8_t track)
     
   uint8_t midiNote;
   uint8_t degree;
+  uint8_t midiChannel;
+
+  midiChannel = midiAssign[track];
 
   //iterate over 'spaces' for initiated data
   
@@ -386,14 +400,14 @@ void Engine::triggerNotes(uint8_t track)
     midiNote = table[trackScale[track]][degree] + _NoteOn[seqPosition[track]][track][i].octave * 12 + key[track];
 
     //better check the "virtual key board" to see if the note is already sounding on this track
-    if(keysOn[track][midiNote])
+    if(keysOn[midiChannel][midiNote])
       continue;
     
     //all good, so, sound the note! *MIDI doesn't have track zero*
-    midicb(midiNote, 1, (track + 1));
+    midicb(midiNote, 1, midiChannel);
 
     //update keyboard
-    keysOn[track][midiNote] = true;
+    keysOn[midiChannel][midiNote] = true;
 
     //update polyphony management array
     
@@ -490,9 +504,8 @@ uint8_t Engine::getNextPosition(uint8_t track)
 
 void Engine::pageUp(uint8_t track)
 {
-
-  startPoint[track] = (startPoint[track] + 16) % STEPS;
-  loopPoint[track] = (loopPoint[track] + 16) % STEPS;
+  loopPoint[track] = loopPoint[track] + trackLength[track];
+  startPoint[track] = startPoint[track] + trackLength[track];
   seqPosition[track] = startPoint[track];
   
 }
@@ -500,10 +513,18 @@ void Engine::pageUp(uint8_t track)
 void Engine::pageDown(uint8_t track)
 {
 
-  startPoint[track] = (startPoint[track] - 16) % STEPS;
-  loopPoint[track] = (loopPoint[track] - 16) % STEPS;
+  startPoint[track] = startPoint[track] - trackLength[track];
   seqPosition[track] = startPoint[track];
+  loopPoint[track] = loopPoint[track] - trackLength[track];
   
+  
+}
+
+void Engine::selectPage(uint8_t page)
+{
+  startPoint[trackRecord] = page*16;
+  seqPosition[trackRecord] = startPoint[trackRecord];
+  loopPoint[trackRecord] = startPoint[trackRecord] + 16;
 }
 
 void Engine::changeDirection(uint8_t track)
@@ -548,7 +569,10 @@ void Engine::keyDown()
 
   return;
 }
-
+void Engine::assignMidi(uint8_t track, uint8_t channel)
+{
+  midiAssign[track] = channel;
+}
 void Engine::muteTrack()
 {
   trackMute[trackRecord] = trackMute[trackRecord] ? false : true;
@@ -570,7 +594,7 @@ void Engine::muteAll()
 void Engine::initializeTrack()
 {
   _stop();
-
+  /*
   uint8_t i = 0;
  
   do {
@@ -579,18 +603,66 @@ void Engine::initializeTrack()
       _NoteOn[i][trackRecord][j].degree = 15;
     }
   } while(i++ != 255);
-  
+  */
+  for(uint16_t i = 0; i < 256; i++) {
+    for(uint8_t j = 0; j < POLYPHONY; j++) {
+      
+      _NoteOn[i][trackRecord][j].degree = 15;
+    }
+  }
 }
 
-void Engine::setDivision()
+void Engine::setDivision(uint8_t selection, uint8_t track)
 {
-  //later
+  switch(selection)
+  {
+    case 0:
+      division[track] = & sixteenth;
+      break;
+    case 1:
+      division[track] = & beatDiv_8;
+      break;
+    case 2:
+      division[track] = & beatDiv_32;
+      break;
+    case 3:
+      division[track] = & beatDiv_8_triplets;
+      break;
+  }
 }
 
 void Engine::setLoopPoint(uint8_t point)
 {
   loopPoint[trackRecord] = point;
-  
+  trackLength[trackRecord] = loopPoint[trackRecord] - startPoint[trackRecord];
+  return;
+}
+
+void Engine::incLoopPoint()
+{
+  loopPoint[trackRecord] = loopPoint[trackRecord] + 1;
+  trackLength[trackRecord] = trackLength[trackRecord] + 1;
+  return;
+}
+
+void Engine::decLoopPoint()
+{
+  loopPoint[trackRecord] = loopPoint[trackRecord] - 1;
+  trackLength[trackRecord] = trackLength[trackRecord] - 1;
+  return;
+}
+
+void Engine::incStartPoint()
+{
+  startPoint[trackRecord] = startPoint[trackRecord] + 1;
+  trackLength[trackRecord] = trackLength[trackRecord] + 1;
+  return;
+}
+
+void Engine::decStartPoint()
+{
+  startPoint[trackRecord] = startPoint[trackRecord] - 1;
+  trackLength[trackRecord] = trackLength[trackRecord] - 1;
   return;
 }
 
@@ -646,6 +718,17 @@ void Engine::setTrackScale(uint8_t scale)
   //play?
   
 }
+
+void Engine::setTrackScale(uint8_t scale, uint8_t track)
+{
+  if(scale > 12)
+    return;
+  //pause? 
+  trackScale[track] = scale;
+  //trackAllNotesOff(trackRecord);
+  //play?
+  
+}
 /*********************************************
 *  CONSTRUCTION ALGORITHMS
 *  
@@ -679,7 +762,7 @@ void Engine::construction(uint8_t algorithm)
          break;
         
         case 4:
-        //add random note
+        //add random note UNTESTED
 
           bool complete_random_add;
           complete_random_add = false;
@@ -707,10 +790,10 @@ void Engine::construction(uint8_t algorithm)
         
         case 5:
         
-        //retrograde fugue
+        //retrograde fugue NOT CHANGING PITCH JUST PASTING BACKWARDS
           
           uint8_t loc_retro_fugue;
-          loc_retro_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1);
+          loc_retro_fugue = loopPoint[i] + trackLength[i];
           
           for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
@@ -734,14 +817,14 @@ void Engine::construction(uint8_t algorithm)
             }
           }
           //startPoint[i] = loopPoint[i] + 1;
-          loopPoint[i] = loc_retro_fugue;
-          seqPosition[i] = startPoint[i];
+          //loopPoint[i] = loc_retro_fugue;
+         // seqPosition[i] = startPoint[i];
           //Serial.println("Hey");
           break;
         
         case 6:
         
-        //the "maybe copy"
+        //the "maybe copy" TESTED WORKING 
         
           uint8_t maybe;
           uint8_t nextPage_maybe;
@@ -767,11 +850,11 @@ void Engine::construction(uint8_t algorithm)
           break;
         
         case 7:
-         //basic fugue
+         //basic fugue PLACING NOTES WAY OUT OF SEQUENCE LENGTH
           uint8_t loc_fugue;
-          loc_fugue = ((loopPoint[i] - startPoint[i]) * 2 + 1);
+          loc_fugue = loopPoint[i] + 1;
           
-          for(uint8_t j = startPoint[i]; j < loopPoint[i]; j++)
+          for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
             for(uint8_t k = 0; k < POLYPHONY; k++)
             {
@@ -792,9 +875,9 @@ void Engine::construction(uint8_t algorithm)
               }
             }
           }
-          loopPoint[i] = loc_fugue;
+          //loopPoint[i] = loc_fugue;
           //startPoint[i] = startPoint[i] + 16;
-          seqPosition[i] = startPoint[i];
+          //seqPosition[i] = startPoint[i];
           break;
           
         case 8:
@@ -843,7 +926,7 @@ void Engine::construction(uint8_t algorithm)
         //retrograde
 
           uint8_t loc_retro;
-          loc_retro = (loopPoint[i] - startPoint[i]) * 2 + 1;
+          loc_retro = loopPoint[i] + trackLength[i];
           
           for(uint8_t j = startPoint[i]; j <= loopPoint[i]; j++)
           {
@@ -858,9 +941,9 @@ void Engine::construction(uint8_t algorithm)
               }
             }
           }
-          loopPoint[i] = loc_retro;
-          startPoint[i] = startPoint[i] + 16;
-          seqPosition[i] = startPoint[i];
+          //loopPoint[i] = loc_retro;
+          //startPoint[i] = startPoint[i] + 16;
+         // seqPosition[i] = startPoint[i];
           break;
           
         case 14:
@@ -982,7 +1065,7 @@ void Engine::destruction(uint8_t algorithm)
         case 13:
         //total silence (re-init track)
     
-        for(uint8_t j = 0; j < STEPS; j++)
+        for(uint16_t j = 0; j < STEPS; j++)
         {
           for(uint8_t k = 0; k < POLYPHONY; k++)
           {
