@@ -122,12 +122,12 @@ void setup() {
   starfield.assignMidi(1, 1);
   starfield.assignMidi(2, 1);
   starfield.assignMidi(3, 1);
-  starfield.assignMidi(4, 4);
-  starfield.assignMidi(5, 4);
-  starfield.assignMidi(6, 4);
-  starfield.assignMidi(7, 4);
-  starfield.assignMidi(8, 2);
-  starfield.assignMidi(9, 2);
+  starfield.assignMidi(4, 2);
+  starfield.assignMidi(5, 2);
+  starfield.assignMidi(6, 2);
+  starfield.assignMidi(7, 2);
+  starfield.assignMidi(8, 3);
+  starfield.assignMidi(9, 3);
   starfield.assignMidi(10, 10);
   starfield.assignMidi(11, 10);
   starfield.assignMidi(12, 10);
