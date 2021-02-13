@@ -35,9 +35,11 @@ void ui::readTouch(uint16_t touch) {
     if(track == 16)
     {
       sequencer->initializeTrack();
+      return;
     } else if (track == 17)
     {
       sequencer->undoLastNote();
+      return;
     } else 
     {
       sequencer->selectTrackRecord(track);
@@ -62,12 +64,7 @@ void ui::readTouch(uint16_t touch) {
     }
   }
   
-  if(lowCode && touch & UP_CODE)
-  {
-  
-  }
-  
-  
+   
   //set track scale mode (hold track and tap scale)
   if(lowCode && touch & SCALE_CODE)
   {
@@ -80,7 +77,8 @@ void ui::readTouch(uint16_t touch) {
   if(lowCode && touch & ALGORITHM_CODE)
   { 
     if(track < 4 || (track > 7 && track < 12))
-      sequencer->toggleWriteEnabled(track);
+      //sequencer->toggleWriteEnabled(track);
+      return;
     else
       sequencer->construction(track);
     return;  
@@ -93,30 +91,52 @@ void ui::readTouch(uint16_t touch) {
   }
   
   //octave up
-  if(touch & UP_CODE && !_up.current)
+  if(touch & UP_CODE && !lowCode)
   {
     sequencer->octaveUp();
-    _up.current = true;
     return;
   }
 
-  if(!(touch & UP_CODE)  && _up.current)
+  if(touch & UP_CODE  && lowCode)
   {
-    _up.current = false;
+   if(track == 16)
+    {
+      sequencer->incStartPoint();
+      return;
+    } else if (track == 17)
+    {
+      sequencer->incLoopPoint();
+      return;
+    } else 
+    {
+      sequencer->pageUp(track);
+      return;
+    }
    
   }
   
   //octave down
-  if(touch & DOWN_CODE && !_down.current)
+  if(touch & DOWN_CODE && !lowCode)
   {
     sequencer->octaveDown();
-    _down.current = true;
     return;
   }
 
-  if(!(touch & DOWN_CODE) && _down.current)
+  if(touch & DOWN_CODE && lowCode)
   {
-    _down.current = false;
+    if(track == 16)
+    {
+      sequencer->decStartPoint();
+      return;
+    } else if (track == 17)
+    {
+      sequencer->decLoopPoint();
+      return;
+    } else 
+    {
+      sequencer->pageDown(track);
+      return;
+    }
   }
 
   //play
@@ -151,7 +171,7 @@ void ui::readTouch(uint16_t touch) {
 
 uint8_t ui::getTrack(uint8_t track)
 {
-  for(uint8_t i = 0; i < 18; i++)
+  for(uint8_t i = 0; i < 17; i++)
   {
     if(trackCode[i] == track)
       return i;

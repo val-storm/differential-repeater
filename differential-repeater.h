@@ -16,7 +16,7 @@
 
 typedef void (*MIDIcallback) (uint8_t note, uint8_t type, uint8_t channel);
 
-//typedef void (*STEPcallback) (uint8_t step);
+typedef void (*STEPcallback) ();
 
 //current scale list not the most fun or comprehensive, would like to implement scala tunings
 //which to my understanding would have specific 14 bit pitchbend values associated with midi
@@ -52,7 +52,7 @@ class Engine
     void _stop();
     void transport();
     void toggleRecord();
-    void setDivision();
+    void setDivision(uint8_t selection, uint8_t track);
     void changeDirection(uint8_t track);
     uint8_t getPosition(uint8_t track);
     uint8_t getWrite(uint8_t track);
@@ -63,10 +63,16 @@ class Engine
     void setStartPoint(uint8_t track, uint8_t point);
     void pageUp(uint8_t track);
     void pageDown(uint8_t track);
+    void incLoopPoint();
+    void incStartPoint();
+    void decLoopPoint();
+    void decStartPoint();
+    void selectPage(uint8_t page);
     void setTempo(int bpm);
     void writeNoteOn(uint8_t degree);
     void writeNoteOff(uint8_t degree);
     void undoLastNote();
+    void assignMidi(uint8_t track, uint8_t channel);
     void octaveUp();
     void octaveDown();
     void keyUp();
@@ -76,7 +82,9 @@ class Engine
     void muteAll();
     void toggleWriteEnabled(uint8_t track);
     void setTrackScale(uint8_t scale);
+    void setTrackScale(uint8_t scale, uint8_t track);
     void setMidiHandler(MIDIcallback cb);
+    void setStepSignal(STEPcallback cb);
     //temp debugging functions
     uint8_t getTrackRecord();
     void selectTrackRecord(uint8_t track);
@@ -90,9 +98,10 @@ class Engine
     uint8_t loopPoint[16];
     uint8_t seqPosition[16];  //position is kind of misleading perhaps a better name
     uint8_t startPoint[16];
+    uint8_t trackLength[16];
     bool writeEnabled[16];
     uint8_t seqDirection[16];
-    
+    uint8_t midiAssign[16];
     //bool isBackward[16];
     //bool isRandom[16];
     uint8_t trackScale[16];
@@ -141,6 +150,8 @@ class Engine
     bool trackMute[TRACKS] = { 0 };
     
     MIDIcallback midicb;
+
+    STEPcallback stepcb;
    
     uint8_t lowFilter;
     uint8_t highFilter;
