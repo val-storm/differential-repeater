@@ -2,7 +2,7 @@
 
 The Differential Repeater (named after Gilles Deleuze's great work of philosophy Difference and Repetition)
 is a large scale sequencer realm `[16][16][256]`  where sequences and patterns may be continually modified
-by constructive (additive, no overwrite) and destructive (negating, overwrtite) algorithms.
+by constructive (additive, no overwrite) and destructive (negating, overwrtite) algorithms. Generating, moving through, and selecting spaces takes precedent over "composition". 
 
 ## Examples of Contstuction/Destruction algorithms
 ### Constructive
